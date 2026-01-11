@@ -28,7 +28,8 @@ const server = createServer(async (req, res) => {
     const requestUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
     const pathname = decodeURIComponent(requestUrl.pathname);
     const safePath = normalize(pathname).replace(/^(\.\.[/\\])+/, '');
-    const filePath = join(rootDir, safePath === '/' ? 'index.html' : safePath);
+    const cleanedPath = safePath.replace(/^[/\\]+/, '');
+    const filePath = join(rootDir, cleanedPath || 'index.html');
 
     const ext = extname(filePath).toLowerCase();
     const contentType = contentTypes[ext] || 'application/octet-stream';

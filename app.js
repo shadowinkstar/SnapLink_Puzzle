@@ -37,6 +37,8 @@ createApp({
       timerId: null,
       timeElapsed: '00:00',
       dragging: null,
+      dragFrameId: null,
+      pendingDrag: null,
       boardSize: 0,
       pieceSize: 0,
       isComplete: false,
@@ -194,7 +196,7 @@ createApp({
     },
     pieceStyle(piece) {
       const translate = this.dragging && this.dragging.clusterPieces.includes(piece.id)
-        ? `translate(${this.dragging.dx}px, ${this.dragging.dy}px)`
+        ? `translate3d(${this.dragging.dx}px, ${this.dragging.dy}px, 0)`
         : '';
 
       return {
@@ -303,19 +305,38 @@ createApp({
           col: this.pieces[id].currentCol
         }))
       };
+      this.pendingDrag = { dx: 0, dy: 0 };
     },
     handlePointerMove(event) {
       if (!this.dragging) {
         return;
       }
       event.preventDefault();
-      this.dragging.dx = event.clientX - this.dragging.startX;
-      this.dragging.dy = event.clientY - this.dragging.startY;
+      this.pendingDrag = {
+        dx: event.clientX - this.dragging.startX,
+        dy: event.clientY - this.dragging.startY
+      };
+      if (this.dragFrameId) {
+        return;
+      }
+      this.dragFrameId = requestAnimationFrame(() => {
+        this.dragFrameId = null;
+        if (!this.dragging || !this.pendingDrag) {
+          return;
+        }
+        this.dragging.dx = this.pendingDrag.dx;
+        this.dragging.dy = this.pendingDrag.dy;
+      });
     },
     handlePointerUp(event) {
       if (!this.dragging) {
         return;
       }
+      if (this.dragFrameId) {
+        cancelAnimationFrame(this.dragFrameId);
+        this.dragFrameId = null;
+      }
+      this.pendingDrag = null;
 
       const { clusterId, pieceId, clusterPieces } = this.dragging;
 
