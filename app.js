@@ -1,4 +1,5 @@
 import { createApp } from './node_modules/vue/dist/vue.esm-browser.prod.js';
+import * as PIXI from 'https://cdn.jsdelivr.net/npm/pixi.js@7.4.0/dist/pixi.min.mjs';
 
 const builtInImages = [
   {
@@ -37,6 +38,13 @@ createApp({
       timerId: null,
       timeElapsed: '00:00',
       dragging: null,
+      pixiApp: null,
+      pixiContainer: null,
+      pixiPieces: new Map(),
+      pixiLabels: new Map(),
+      baseTexture: null,
+      pixiDragFrameId: null,
+      pixiPendingDrag: null,
       boardSize: 0,
       pieceSize: 0,
       isComplete: false,
@@ -50,12 +58,16 @@ createApp({
       this.rows = newSize;
       this.cols = newSize;
       this.resetGame();
+    },
+    showNumbers() {
+      this.updateLabelVisibility();
     }
   },
   mounted() {
     this.rows = this.gridSize;
     this.cols = this.gridSize;
     window.addEventListener('resize', this.handleResize);
+    this.initPixi();
     this.loadBuiltIn(this.builtInImages[0]);
   },
   beforeUnmount() {
@@ -63,8 +75,56 @@ createApp({
     if (this.timerId) {
       clearInterval(this.timerId);
     }
+    this.destroyPixi();
   },
   methods: {
+    initPixi() {
+      if (this.pixiApp) {
+        return;
+      }
+      const boardEl = this.$refs.board;
+      if (!boardEl) {
+        return;
+      }
+      const app = new PIXI.Application({
+        backgroundAlpha: 0,
+        antialias: true,
+        resizeTo: boardEl
+      });
+      app.stage.sortableChildren = true;
+      app.stage.eventMode = 'static';
+      app.stage.hitArea = app.screen;
+      app.stage.on('pointermove', (event) => this.handlePointerMove(event));
+      app.stage.on('pointerup', (event) => this.handlePointerUp(event));
+      app.stage.on('pointerupoutside', (event) => this.handlePointerUp(event));
+      app.view.style.width = '100%';
+      app.view.style.height = '100%';
+      app.view.style.display = 'block';
+      boardEl.innerHTML = '';
+      boardEl.appendChild(app.view);
+      const container = new PIXI.Container();
+      app.stage.addChild(container);
+      this.pixiApp = app;
+      this.pixiContainer = container;
+    },
+    destroyPixi() {
+      if (this.pixiApp) {
+        this.pixiApp.destroy(true, { children: true, texture: true, baseTexture: true });
+        this.pixiApp = null;
+        this.pixiContainer = null;
+        this.pixiPieces = new Map();
+        this.pixiLabels = new Map();
+        this.baseTexture = null;
+      }
+    },
+    clearPixiPieces() {
+      if (!this.pixiContainer) {
+        return;
+      }
+      this.pixiContainer.removeChildren().forEach((child) => child.destroy());
+      this.pixiPieces.clear();
+      this.pixiLabels.clear();
+    },
     handleResize() {
       this.updateBoardMetrics();
       this.layoutPieces();
@@ -146,9 +206,12 @@ createApp({
       this.grid = [];
       this.isComplete = false;
       this.winVisible = false;
+      this.clearPixiPieces();
     },
     buildPieces() {
       this.updateBoardMetrics();
+      this.initPixi();
+      this.prepareTexture();
       const total = this.rows * this.cols;
       this.grid = Array.from({ length: this.rows }, () => Array(this.cols).fill(null));
 
@@ -175,6 +238,7 @@ createApp({
 
       this.pieces = pieces;
       this.clusters = clusters;
+      this.createPixiPieces();
       this.layoutPieces();
     },
     updateBoardMetrics() {
@@ -190,13 +254,9 @@ createApp({
       if (!this.pieces.length) {
         return;
       }
-      this.pieces = [...this.pieces];
+      this.renderPiecePositions();
     },
     pieceStyle(piece) {
-      const translate = this.dragging && this.dragging.clusterPieces.includes(piece.id)
-        ? `translate(${this.dragging.dx}px, ${this.dragging.dy}px)`
-        : '';
-
       return {
         width: `${this.pieceSize}px`,
         height: `${this.pieceSize}px`,
@@ -204,8 +264,7 @@ createApp({
         top: `${piece.currentRow * this.pieceSize}px`,
         backgroundImage: `url(${this.imageDataUrl})`,
         backgroundSize: `${this.boardSize}px ${this.boardSize}px`,
-        backgroundPosition: `-${piece.correctCol * this.pieceSize}px -${piece.correctRow * this.pieceSize}px`,
-        transform: translate
+        backgroundPosition: `-${piece.correctCol * this.pieceSize}px -${piece.correctRow * this.pieceSize}px`
       };
     },
     shufflePieces() {
@@ -278,52 +337,73 @@ createApp({
       this.winVisible = false;
     },
     handlePointerDown(event) {
-      const target = event.target.closest('.piece');
-      if (!target || this.isComplete) {
+      if (this.isComplete || !event.target || !event.target.__pieceId) {
         return;
       }
-      event.preventDefault();
-      target.setPointerCapture(event.pointerId);
-
-      const pieceId = Number.parseInt(target.dataset.id, 10);
+      const pieceId = event.target.__pieceId;
       const piece = this.pieces[pieceId];
       const clusterPieces = Array.from(this.clusters.get(piece.clusterId));
+      const clusterPiecesSet = new Set(clusterPieces);
 
       this.dragging = {
         clusterId: piece.clusterId,
         pieceId,
-        startX: event.clientX,
-        startY: event.clientY,
-        dx: 0,
-        dy: 0,
+        startX: event.global.x,
+        startY: event.global.y,
         clusterPieces,
+        clusterPiecesSet,
         originalPositions: clusterPieces.map((id) => ({
           id,
           row: this.pieces[id].currentRow,
           col: this.pieces[id].currentCol
-        }))
+        })),
+        originalPositionMap: new Map(
+          clusterPieces.map((id) => [
+            id,
+            {
+              row: this.pieces[id].currentRow,
+              col: this.pieces[id].currentCol
+            }
+          ])
+        )
       };
+      this.pixiPendingDrag = { dx: 0, dy: 0 };
+      this.setDragOffset(0, 0);
     },
     handlePointerMove(event) {
       if (!this.dragging) {
         return;
       }
-      event.preventDefault();
-      this.dragging.dx = event.clientX - this.dragging.startX;
-      this.dragging.dy = event.clientY - this.dragging.startY;
+      this.pixiPendingDrag = {
+        dx: event.global.x - this.dragging.startX,
+        dy: event.global.y - this.dragging.startY
+      };
+      if (this.pixiDragFrameId) {
+        return;
+      }
+      this.pixiDragFrameId = requestAnimationFrame(() => {
+        this.pixiDragFrameId = null;
+        if (!this.dragging || !this.pixiPendingDrag) {
+          return;
+        }
+        this.setDragOffset(this.pixiPendingDrag.dx, this.pixiPendingDrag.dy);
+      });
     },
     handlePointerUp(event) {
       if (!this.dragging) {
         return;
       }
+      if (this.pixiDragFrameId) {
+        cancelAnimationFrame(this.pixiDragFrameId);
+        this.pixiDragFrameId = null;
+      }
+      this.pixiPendingDrag = null;
+      this.setDragOffset(0, 0);
 
       const { clusterId, pieceId, clusterPieces } = this.dragging;
 
-      const boardRect = this.$refs.board.getBoundingClientRect();
-      const x = event.clientX - boardRect.left;
-      const y = event.clientY - boardRect.top;
-      const targetRow = this.clamp(Math.floor(y / this.pieceSize), 0, this.rows - 1);
-      const targetCol = this.clamp(Math.floor(x / this.pieceSize), 0, this.cols - 1);
+      const targetRow = this.clamp(Math.floor(event.global.y / this.pieceSize), 0, this.rows - 1);
+      const targetCol = this.clamp(Math.floor(event.global.x / this.pieceSize), 0, this.cols - 1);
       const targetPieceId = this.grid[targetRow][targetCol];
 
       if (targetPieceId == null) {
@@ -374,9 +454,6 @@ createApp({
       this.checkAndMergeClusters([clusterId, targetClusterId]);
       this.checkWinCondition();
 
-      if (event.target && event.target.releasePointerCapture) {
-        event.target.releasePointerCapture(event.pointerId);
-      }
       this.dragging = null;
     },
     isPositionsValid(newPositionsA, newPositionsB, occupied) {
@@ -520,7 +597,108 @@ createApp({
       return Math.min(Math.max(value, min), max);
     },
     isPieceDragging(piece) {
-      return Boolean(this.dragging && this.dragging.clusterPieces.includes(piece.id));
+      return Boolean(this.dragging && this.dragging.clusterPiecesSet.has(piece.id));
+    },
+    setDragOffset(dx, dy) {
+      if (!this.dragging) {
+        return;
+      }
+      this.dragging.clusterPieces.forEach((id) => {
+        const sprite = this.pixiPieces.get(id);
+        const original = this.dragging.originalPositionMap.get(id);
+        if (!sprite || !original) {
+          return;
+        }
+        sprite.x = (original.col * this.pieceSize) + dx;
+        sprite.y = (original.row * this.pieceSize) + dy;
+        const label = this.pixiLabels.get(id);
+        if (label) {
+          label.x = sprite.x + 8;
+          label.y = sprite.y + 6;
+        }
+      });
+    },
+    prepareTexture() {
+      if (!this.imageDataUrl) {
+        return;
+      }
+      this.baseTexture = PIXI.BaseTexture.from(this.imageDataUrl);
+      if (!this.baseTexture.valid) {
+        this.baseTexture.once('loaded', () => {
+          this.createPixiPieces();
+          this.renderPiecePositions();
+        });
+      }
+    },
+    createPixiPieces() {
+      if (!this.pixiContainer || !this.baseTexture || !this.baseTexture.valid) {
+        return;
+      }
+      this.clearPixiPieces();
+      const pieceSize = this.pieceSize;
+      const sourcePieceSize = this.baseTexture.width / this.cols;
+      this.pieces.forEach((piece) => {
+        const rect = new PIXI.Rectangle(
+          piece.correctCol * sourcePieceSize,
+          piece.correctRow * sourcePieceSize,
+          sourcePieceSize,
+          sourcePieceSize
+        );
+        const texture = new PIXI.Texture(this.baseTexture, rect);
+        const sprite = new PIXI.Sprite(texture);
+        sprite.width = pieceSize;
+        sprite.height = pieceSize;
+        sprite.x = piece.currentCol * pieceSize;
+        sprite.y = piece.currentRow * pieceSize;
+        sprite.eventMode = 'static';
+        sprite.cursor = 'grab';
+        sprite.zIndex = 2;
+        sprite.__pieceId = piece.id;
+        sprite.on('pointerdown', (event) => this.handlePointerDown(event));
+        this.pixiContainer.addChild(sprite);
+        this.pixiPieces.set(piece.id, sprite);
+
+        const label = new PIXI.Text(
+          `${piece.correctRow + 1},${piece.correctCol + 1}`,
+          {
+            fontSize: 12,
+            fill: 0xffffff,
+            fontWeight: '600'
+          }
+        );
+        label.visible = this.showNumbers;
+        label.x = sprite.x + 8;
+        label.y = sprite.y + 6;
+        label.eventMode = 'none';
+        label.zIndex = 3;
+        this.pixiContainer.addChild(label);
+        this.pixiLabels.set(piece.id, label);
+      });
+    },
+    renderPiecePositions() {
+      if (!this.pixiPieces.size) {
+        return;
+      }
+      this.pieces.forEach((piece) => {
+        const sprite = this.pixiPieces.get(piece.id);
+        if (!sprite) {
+          return;
+        }
+        sprite.x = piece.currentCol * this.pieceSize;
+        sprite.y = piece.currentRow * this.pieceSize;
+        sprite.width = this.pieceSize;
+        sprite.height = this.pieceSize;
+        const label = this.pixiLabels.get(piece.id);
+        if (label) {
+          label.x = sprite.x + 8;
+          label.y = sprite.y + 6;
+        }
+      });
+    },
+    updateLabelVisibility() {
+      this.pixiLabels.forEach((label) => {
+        label.visible = this.showNumbers;
+      });
     }
   }
 }).mount('#app');

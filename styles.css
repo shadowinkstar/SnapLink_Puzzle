@@ -122,6 +122,8 @@ body {
   position: relative;
   width: min(72vh, 72vw, 720px);
   height: min(72vh, 72vw, 720px);
+  --drag-x: 0px;
+  --drag-y: 0px;
   background: #d9dff9;
   border-radius: 20px;
   box-shadow: inset 0 0 0 4px rgba(255, 255, 255, 0.6);
@@ -146,6 +148,8 @@ body {
 .piece.dragging {
   cursor: grabbing;
   transition: none;
+  will-change: transform;
+  transform: translate3d(var(--drag-x), var(--drag-y), 0);
   box-shadow: 0 20px 24px rgba(24, 32, 73, 0.28);
   z-index: 3;
 }
