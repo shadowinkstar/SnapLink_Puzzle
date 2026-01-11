@@ -171,6 +171,7 @@ createApp({
     async setImageFromBitmap(bitmap) {
       const dataUrl = this.renderImage(bitmap, this.cropSquare);
       this.imageDataUrl = dataUrl;
+      await this.loadPixiTexture(dataUrl);
       this.resetGame();
     },
     renderImage(bitmap, cropSquare) {
@@ -396,7 +397,7 @@ createApp({
       if (!this.dragging) {
         return;
       }
-      if (this.dragFrameId) {
+       if (this.dragFrameId) {
         cancelAnimationFrame(this.dragFrameId);
         this.dragFrameId = null;
       }

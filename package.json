@@ -5,6 +5,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "pixi.js": "^7.4.0",
     "vue": "^3.4.30"
   },
   "scripts": {
