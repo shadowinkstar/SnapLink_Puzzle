@@ -1,4 +1,5 @@
 import { createApp } from './node_modules/vue/dist/vue.esm-browser.prod.js';
+import * as PIXI from 'https://cdn.jsdelivr.net/npm/pixi.js@7.4.0/dist/pixi.min.mjs';
 
 const builtInImages = [
   {
@@ -52,6 +53,9 @@ createApp({
       this.rows = newSize;
       this.cols = newSize;
       this.resetGame();
+    },
+    showNumbers() {
+      this.updateLabelVisibility();
     }
   },
   mounted() {
@@ -61,6 +65,7 @@ createApp({
     this.pendingDrag = null;
     this.dragOffset = { dx: 0, dy: 0 };
     window.addEventListener('resize', this.handleResize);
+    this.initPixi();
     this.loadBuiltIn(this.builtInImages[0]);
   },
   beforeUnmount() {
@@ -68,8 +73,56 @@ createApp({
     if (this.timerId) {
       clearInterval(this.timerId);
     }
+    this.destroyPixi();
   },
   methods: {
+    initPixi() {
+      if (this.pixiApp) {
+        return;
+      }
+      const boardEl = this.$refs.board;
+      if (!boardEl) {
+        return;
+      }
+      const app = new PIXI.Application({
+        backgroundAlpha: 0,
+        antialias: true,
+        resizeTo: boardEl
+      });
+      app.stage.sortableChildren = true;
+      app.stage.eventMode = 'static';
+      app.stage.hitArea = app.screen;
+      app.stage.on('pointermove', (event) => this.handlePointerMove(event));
+      app.stage.on('pointerup', (event) => this.handlePointerUp(event));
+      app.stage.on('pointerupoutside', (event) => this.handlePointerUp(event));
+      app.view.style.width = '100%';
+      app.view.style.height = '100%';
+      app.view.style.display = 'block';
+      boardEl.innerHTML = '';
+      boardEl.appendChild(app.view);
+      const container = new PIXI.Container();
+      app.stage.addChild(container);
+      this.pixiApp = app;
+      this.pixiContainer = container;
+    },
+    destroyPixi() {
+      if (this.pixiApp) {
+        this.pixiApp.destroy(true, { children: true, texture: true, baseTexture: true });
+        this.pixiApp = null;
+        this.pixiContainer = null;
+        this.pixiPieces = new Map();
+        this.pixiLabels = new Map();
+        this.baseTexture = null;
+      }
+    },
+    clearPixiPieces() {
+      if (!this.pixiContainer) {
+        return;
+      }
+      this.pixiContainer.removeChildren().forEach((child) => child.destroy());
+      this.pixiPieces.clear();
+      this.pixiLabels.clear();
+    },
     handleResize() {
       this.updateBoardMetrics();
       this.layoutPieces();
@@ -151,9 +204,12 @@ createApp({
       this.grid = [];
       this.isComplete = false;
       this.winVisible = false;
+      this.clearPixiPieces();
     },
     buildPieces() {
       this.updateBoardMetrics();
+      this.initPixi();
+      this.prepareTexture();
       const total = this.rows * this.cols;
       this.grid = Array.from({ length: this.rows }, () => Array(this.cols).fill(null));
 
@@ -180,6 +236,7 @@ createApp({
 
       this.pieces = pieces;
       this.clusters = clusters;
+      this.createPixiPieces();
       this.layoutPieces();
     },
     updateBoardMetrics() {
@@ -195,7 +252,7 @@ createApp({
       if (!this.pieces.length) {
         return;
       }
-      this.pieces = [...this.pieces];
+      this.renderPiecePositions();
     },
     pieceStyle(piece) {
       const translate = this.dragging && this.dragging.clusterPieces.includes(piece.id)
@@ -282,14 +339,10 @@ createApp({
       this.winVisible = false;
     },
     handlePointerDown(event) {
-      const target = event.target.closest('.piece');
-      if (!target || this.isComplete) {
+      if (this.isComplete || !event.target || !event.target.__pieceId) {
         return;
       }
-      event.preventDefault();
-      target.setPointerCapture(event.pointerId);
-
-      const pieceId = Number.parseInt(target.dataset.id, 10);
+      const pieceId = event.target.__pieceId;
       const piece = this.pieces[pieceId];
       const clusterPieces = Array.from(this.clusters.get(piece.clusterId));
       const clusterPiecesSet = new Set(clusterPieces);
@@ -305,7 +358,16 @@ createApp({
           id,
           row: this.pieces[id].currentRow,
           col: this.pieces[id].currentCol
-        }))
+        })),
+        originalPositionMap: new Map(
+          clusterPieces.map((id) => [
+            id,
+            {
+              row: this.pieces[id].currentRow,
+              col: this.pieces[id].currentCol
+            }
+          ])
+        )
       };
       this.pendingDrag = { dx: 0, dy: 0 };
     },
@@ -342,11 +404,8 @@ createApp({
 
       const { clusterId, pieceId, clusterPieces } = this.dragging;
 
-      const boardRect = this.$refs.board.getBoundingClientRect();
-      const x = event.clientX - boardRect.left;
-      const y = event.clientY - boardRect.top;
-      const targetRow = this.clamp(Math.floor(y / this.pieceSize), 0, this.rows - 1);
-      const targetCol = this.clamp(Math.floor(x / this.pieceSize), 0, this.cols - 1);
+      const targetRow = this.clamp(Math.floor(event.global.y / this.pieceSize), 0, this.rows - 1);
+      const targetCol = this.clamp(Math.floor(event.global.x / this.pieceSize), 0, this.cols - 1);
       const targetPieceId = this.grid[targetRow][targetCol];
 
       if (targetPieceId == null) {
@@ -397,9 +456,6 @@ createApp({
       this.checkAndMergeClusters([clusterId, targetClusterId]);
       this.checkWinCondition();
 
-      if (event.target && event.target.releasePointerCapture) {
-        event.target.releasePointerCapture(event.pointerId);
-      }
       this.dragging = null;
     },
     isPositionsValid(newPositionsA, newPositionsB, occupied) {
