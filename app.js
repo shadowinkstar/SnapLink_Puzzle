@@ -37,6 +37,8 @@ createApp({
       timerId: null,
       timeElapsed: '00:00',
       dragging: null,
+      dragFrameId: null,
+      pendingDrag: null,
       boardSize: 0,
       pieceSize: 0,
       isComplete: false,
@@ -196,6 +198,10 @@ createApp({
       this.pieces = [...this.pieces];
     },
     pieceStyle(piece) {
+      const translate = this.dragging && this.dragging.clusterPieces.includes(piece.id)
+        ? `translate3d(${this.dragging.dx}px, ${this.dragging.dy}px, 0)`
+        : '';
+
       return {
         width: `${this.pieceSize}px`,
         height: `${this.pieceSize}px`,
@@ -302,7 +308,6 @@ createApp({
         }))
       };
       this.pendingDrag = { dx: 0, dy: 0 };
-      this.setDragOffset(0, 0);
     },
     handlePointerMove(event) {
       if (!this.dragging) {
@@ -321,7 +326,8 @@ createApp({
         if (!this.dragging || !this.pendingDrag) {
           return;
         }
-        this.setDragOffset(this.pendingDrag.dx, this.pendingDrag.dy);
+        this.dragging.dx = this.pendingDrag.dx;
+        this.dragging.dy = this.pendingDrag.dy;
       });
     },
     handlePointerUp(event) {
@@ -333,7 +339,6 @@ createApp({
         this.dragFrameId = null;
       }
       this.pendingDrag = null;
-      this.setDragOffset(0, 0);
 
       const { clusterId, pieceId, clusterPieces } = this.dragging;
 
