@@ -55,6 +55,9 @@ createApp({
   mounted() {
     this.rows = this.gridSize;
     this.cols = this.gridSize;
+    this.dragFrameId = null;
+    this.pendingDrag = null;
+    this.dragOffset = { dx: 0, dy: 0 };
     window.addEventListener('resize', this.handleResize);
     this.loadBuiltIn(this.builtInImages[0]);
   },
@@ -193,10 +196,6 @@ createApp({
       this.pieces = [...this.pieces];
     },
     pieceStyle(piece) {
-      const translate = this.dragging && this.dragging.clusterPieces.includes(piece.id)
-        ? `translate(${this.dragging.dx}px, ${this.dragging.dy}px)`
-        : '';
-
       return {
         width: `${this.pieceSize}px`,
         height: `${this.pieceSize}px`,
@@ -204,8 +203,7 @@ createApp({
         top: `${piece.currentRow * this.pieceSize}px`,
         backgroundImage: `url(${this.imageDataUrl})`,
         backgroundSize: `${this.boardSize}px ${this.boardSize}px`,
-        backgroundPosition: `-${piece.correctCol * this.pieceSize}px -${piece.correctRow * this.pieceSize}px`,
-        transform: translate
+        backgroundPosition: `-${piece.correctCol * this.pieceSize}px -${piece.correctRow * this.pieceSize}px`
       };
     },
     shufflePieces() {
@@ -288,34 +286,54 @@ createApp({
       const pieceId = Number.parseInt(target.dataset.id, 10);
       const piece = this.pieces[pieceId];
       const clusterPieces = Array.from(this.clusters.get(piece.clusterId));
+      const clusterPiecesSet = new Set(clusterPieces);
 
       this.dragging = {
         clusterId: piece.clusterId,
         pieceId,
         startX: event.clientX,
         startY: event.clientY,
-        dx: 0,
-        dy: 0,
         clusterPieces,
+        clusterPiecesSet,
         originalPositions: clusterPieces.map((id) => ({
           id,
           row: this.pieces[id].currentRow,
           col: this.pieces[id].currentCol
         }))
       };
+      this.pendingDrag = { dx: 0, dy: 0 };
+      this.setDragOffset(0, 0);
     },
     handlePointerMove(event) {
       if (!this.dragging) {
         return;
       }
       event.preventDefault();
-      this.dragging.dx = event.clientX - this.dragging.startX;
-      this.dragging.dy = event.clientY - this.dragging.startY;
+      this.pendingDrag = {
+        dx: event.clientX - this.dragging.startX,
+        dy: event.clientY - this.dragging.startY
+      };
+      if (this.dragFrameId) {
+        return;
+      }
+      this.dragFrameId = requestAnimationFrame(() => {
+        this.dragFrameId = null;
+        if (!this.dragging || !this.pendingDrag) {
+          return;
+        }
+        this.setDragOffset(this.pendingDrag.dx, this.pendingDrag.dy);
+      });
     },
     handlePointerUp(event) {
       if (!this.dragging) {
         return;
       }
+      if (this.dragFrameId) {
+        cancelAnimationFrame(this.dragFrameId);
+        this.dragFrameId = null;
+      }
+      this.pendingDrag = null;
+      this.setDragOffset(0, 0);
 
       const { clusterId, pieceId, clusterPieces } = this.dragging;
 
@@ -520,7 +538,16 @@ createApp({
       return Math.min(Math.max(value, min), max);
     },
     isPieceDragging(piece) {
-      return Boolean(this.dragging && this.dragging.clusterPieces.includes(piece.id));
+      return Boolean(this.dragging && this.dragging.clusterPiecesSet.has(piece.id));
+    },
+    setDragOffset(dx, dy) {
+      this.dragOffset = { dx, dy };
+      const boardEl = this.$refs.board;
+      if (!boardEl) {
+        return;
+      }
+      boardEl.style.setProperty('--drag-x', `${dx}px`);
+      boardEl.style.setProperty('--drag-y', `${dy}px`);
     }
   }
 }).mount('#app');
