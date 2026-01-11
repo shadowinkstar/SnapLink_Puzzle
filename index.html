@@ -7,79 +7,107 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <header class="app-header">
-    <div>
-      <h1>SnapLink Puzzle</h1>
-      <p>任意交换 + 自动吸附的拼图挑战</p>
-    </div>
-    <div class="stats">
-      <span>步数：<strong id="moveCount">0</strong></span>
-      <span>时间：<strong id="timeElapsed">00:00</strong></span>
-    </div>
-  </header>
-
-  <main class="app-layout">
-    <section class="control-panel">
-      <div class="control-group">
-        <label for="builtInSelect">内置动漫图</label>
-        <select id="builtInSelect"></select>
+  <div id="app" v-cloak>
+    <header class="app-header">
+      <div>
+        <h1>SnapLink Puzzle</h1>
+        <p>任意交换 + 自动吸附的拼图挑战</p>
       </div>
-
-      <div class="control-group">
-        <label for="uploadInput">上传图片</label>
-        <input type="file" id="uploadInput" accept="image/png,image/jpeg,image/webp" />
+      <div class="stats">
+        <span>步数：<strong>{{ moveCount }}</strong></span>
+        <span>时间：<strong>{{ timeElapsed }}</strong></span>
       </div>
+    </header>
 
-      <div class="control-group">
-        <label for="gridSelect">网格尺寸</label>
-        <select id="gridSelect">
-          <option value="3">3 × 3</option>
-          <option value="4">4 × 4</option>
-          <option value="6" selected>6 × 6</option>
-          <option value="8">8 × 8</option>
-        </select>
-      </div>
+    <main class="app-layout">
+      <section class="control-panel">
+        <div class="control-group">
+          <label for="builtInSelect">内置动漫图</label>
+          <select id="builtInSelect" v-model="selectedBuiltInId" @change="handleBuiltInChange">
+            <option v-for="image in builtInImages" :key="image.id" :value="image.id">
+              {{ image.name }}
+            </option>
+          </select>
+        </div>
 
-      <div class="control-group">
-        <label class="checkbox">
-          <input type="checkbox" id="cropToggle" checked />
-          居中裁剪为正方形
-        </label>
-      </div>
+        <div class="control-group">
+          <label for="uploadInput">上传图片</label>
+          <input type="file" id="uploadInput" accept="image/png,image/jpeg,image/webp" @change="handleUpload" />
+        </div>
 
-      <div class="control-group">
-        <label class="checkbox">
-          <input type="checkbox" id="numberToggle" checked />
-          显示编号
-        </label>
-      </div>
+        <div class="control-group">
+          <label for="gridSelect">网格尺寸</label>
+          <select id="gridSelect" v-model.number="gridSize">
+            <option :value="3">3 × 3</option>
+            <option :value="4">4 × 4</option>
+            <option :value="6">6 × 6</option>
+            <option :value="8">8 × 8</option>
+          </select>
+        </div>
 
-      <div class="control-group buttons">
-        <button id="shuffleButton">重新打乱</button>
-      </div>
+        <div class="control-group">
+          <label class="checkbox">
+            <input type="checkbox" v-model="cropSquare" @change="handleCropChange" />
+            居中裁剪为正方形
+          </label>
+        </div>
 
-      <div class="control-group preview">
-        <span>当前图片预览</span>
-        <img id="imagePreview" alt="当前关卡预览" />
-      </div>
-    </section>
+        <div class="control-group">
+          <label class="checkbox">
+            <input type="checkbox" v-model="showNumbers" />
+            显示编号
+          </label>
+        </div>
 
-    <section class="board-section">
-      <div id="board" class="board"></div>
-    </section>
-  </main>
+        <div class="control-group buttons">
+          <button type="button" @click="handleShuffle">重新打乱</button>
+        </div>
 
-  <div class="modal" id="winModal" aria-hidden="true">
-    <div class="modal-card">
-      <h2>恭喜通关！</h2>
-      <p id="winStats">你完成了这幅拼图。</p>
-      <div class="modal-actions">
-        <button id="playAgainButton">再来一局</button>
-        <button id="closeModalButton">换一张图</button>
+        <div class="control-group preview">
+          <span>当前图片预览</span>
+          <img :src="imageDataUrl" alt="当前关卡预览" />
+        </div>
+      </section>
+
+      <section class="board-section">
+        <div
+          ref="board"
+          class="board"
+          @pointerdown="handlePointerDown"
+          @pointermove="handlePointerMove"
+          @pointerup="handlePointerUp"
+          @pointerleave="handlePointerUp"
+        >
+          <div
+            v-for="piece in pieces"
+            :key="piece.id"
+            class="piece"
+            :class="{
+              'show-label': showNumbers,
+              dragging: isPieceDragging(piece),
+              'merge-flash': piece.flashActive
+            }"
+            :data-id="piece.id"
+            :style="pieceStyle(piece)"
+          >
+            <span class="piece-label">{{ piece.correctRow + 1 }},{{ piece.correctCol + 1 }}</span>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <div class="modal" :class="{ show: winVisible }" :aria-hidden="winVisible ? 'false' : 'true'">
+      <div class="modal-card">
+        <h2>恭喜通关！</h2>
+        <p>{{ winStats }}</p>
+        <div class="modal-actions">
+          <button type="button" @click="handlePlayAgain">再来一局</button>
+          <button type="button" @click="handleCloseModal">换一张图</button>
+        </div>
       </div>
     </div>
   </div>
 
-  <script src="app.js"></script>
+  <script type="module" src="app.js"></script>
 </body>
 </html>

@@ -4,6 +4,9 @@
   "description": "Snap-link puzzle web game",
   "private": true,
   "type": "module",
+  "dependencies": {
+    "vue": "^3.4.30"
+  },
   "scripts": {
     "start": "node server.js"
   }
