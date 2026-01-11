@@ -73,26 +73,7 @@
         <div
           ref="board"
           class="board"
-          @pointerdown="handlePointerDown"
-          @pointermove="handlePointerMove"
-          @pointerup="handlePointerUp"
-          @pointerleave="handlePointerUp"
-        >
-          <div
-            v-for="piece in pieces"
-            :key="piece.id"
-            class="piece"
-            :class="{
-              'show-label': showNumbers,
-              dragging: isPieceDragging(piece),
-              'merge-flash': piece.flashActive
-            }"
-            :data-id="piece.id"
-            :style="pieceStyle(piece)"
-          >
-            <span class="piece-label">{{ piece.correctRow + 1 }},{{ piece.correctCol + 1 }}</span>
-          </div>
-        </div>
+        ></div>
       </section>
     </main>
 
