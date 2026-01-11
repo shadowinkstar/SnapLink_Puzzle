@@ -122,6 +122,8 @@ body {
   position: relative;
   width: min(72vh, 72vw, 720px);
   height: min(72vh, 72vw, 720px);
+  --drag-x: 0px;
+  --drag-y: 0px;
   background: #d9dff9;
   border-radius: 20px;
   box-shadow: inset 0 0 0 4px rgba(255, 255, 255, 0.6);
