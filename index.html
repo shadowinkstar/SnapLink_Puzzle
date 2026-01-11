@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SnapLink Puzzle</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div>
+      <h1>SnapLink Puzzle</h1>
+      <p>任意交换 + 自动吸附的拼图挑战</p>
+    </div>
+    <div class="stats">
+      <span>步数：<strong id="moveCount">0</strong></span>
+      <span>时间：<strong id="timeElapsed">00:00</strong></span>
+    </div>
+  </header>
+
+  <main class="app-layout">
+    <section class="control-panel">
+      <div class="control-group">
+        <label for="builtInSelect">内置动漫图</label>
+        <select id="builtInSelect"></select>
+      </div>
+
+      <div class="control-group">
+        <label for="uploadInput">上传图片</label>
+        <input type="file" id="uploadInput" accept="image/png,image/jpeg,image/webp" />
+      </div>
+
+      <div class="control-group">
+        <label for="gridSelect">网格尺寸</label>
+        <select id="gridSelect">
+          <option value="3">3 × 3</option>
+          <option value="4">4 × 4</option>
+          <option value="6" selected>6 × 6</option>
+          <option value="8">8 × 8</option>
+        </select>
+      </div>
+
+      <div class="control-group">
+        <label class="checkbox">
+          <input type="checkbox" id="cropToggle" checked />
+          居中裁剪为正方形
+        </label>
+      </div>
+
+      <div class="control-group">
+        <label class="checkbox">
+          <input type="checkbox" id="numberToggle" checked />
+          显示编号
+        </label>
+      </div>
+
+      <div class="control-group buttons">
+        <button id="shuffleButton">重新打乱</button>
+      </div>
+
+      <div class="control-group preview">
+        <span>当前图片预览</span>
+        <img id="imagePreview" alt="当前关卡预览" />
+      </div>
+    </section>
+
+    <section class="board-section">
+      <div id="board" class="board"></div>
+    </section>
+  </main>
+
+  <div class="modal" id="winModal" aria-hidden="true">
+    <div class="modal-card">
+      <h2>恭喜通关！</h2>
+      <p id="winStats">你完成了这幅拼图。</p>
+      <div class="modal-actions">
+        <button id="playAgainButton">再来一局</button>
+        <button id="closeModalButton">换一张图</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

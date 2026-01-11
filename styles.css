@@ -1,0 +1,238 @@
+:root {
+  color-scheme: light;
+  font-family: "Segoe UI", "Noto Sans", "PingFang SC", sans-serif;
+  background: #f3f5fb;
+  color: #1b1f3b;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 40px;
+  background: #ffffff;
+  box-shadow: 0 8px 24px rgba(24, 32, 73, 0.08);
+}
+
+.app-header h1 {
+  margin: 0;
+  font-size: 28px;
+}
+
+.app-header p {
+  margin: 4px 0 0;
+  color: #56608a;
+}
+
+.stats {
+  display: flex;
+  gap: 24px;
+  font-size: 16px;
+}
+
+.app-layout {
+  display: grid;
+  grid-template-columns: minmax(240px, 320px) 1fr;
+  gap: 24px;
+  padding: 24px 40px 40px;
+}
+
+.control-panel {
+  background: #ffffff;
+  padding: 20px;
+  border-radius: 16px;
+  box-shadow: 0 16px 24px rgba(24, 32, 73, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.control-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.control-group label {
+  font-weight: 600;
+}
+
+.control-group input[type="file"],
+.control-group select,
+.control-group button {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #d6dbf5;
+  font-size: 14px;
+}
+
+.control-group button {
+  background: #5f6bff;
+  color: #ffffff;
+  border: none;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.control-group button:hover {
+  transform: translateY(-1px);
+}
+
+.checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+}
+
+.preview {
+  border-top: 1px solid #eef0fb;
+  padding-top: 12px;
+}
+
+.preview img {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid #e3e6fb;
+  object-fit: cover;
+  aspect-ratio: 1 / 1;
+  background: #f6f7ff;
+}
+
+.board-section {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.board {
+  position: relative;
+  width: min(72vh, 72vw, 720px);
+  height: min(72vh, 72vw, 720px);
+  background: #d9dff9;
+  border-radius: 20px;
+  box-shadow: inset 0 0 0 4px rgba(255, 255, 255, 0.6);
+  overflow: hidden;
+  touch-action: none;
+}
+
+.piece {
+  position: absolute;
+  border-radius: 12px;
+  background-size: cover;
+  background-repeat: no-repeat;
+  cursor: grab;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  transition: left 0.25s ease, top 0.25s ease;
+  box-shadow: 0 10px 18px rgba(24, 32, 73, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+.piece.dragging {
+  cursor: grabbing;
+  transition: none;
+  box-shadow: 0 20px 24px rgba(24, 32, 73, 0.28);
+  z-index: 3;
+}
+
+.piece-label {
+  font-size: 12px;
+  background: rgba(26, 30, 62, 0.7);
+  color: #ffffff;
+  padding: 4px 6px;
+  border-radius: 6px;
+  margin: 6px;
+  display: none;
+}
+
+.piece.show-label .piece-label {
+  display: block;
+}
+
+.merge-flash {
+  animation: flash 0.45s ease;
+}
+
+@keyframes flash {
+  0% {
+    box-shadow: 0 0 0 rgba(255, 255, 255, 0.8);
+  }
+  50% {
+    box-shadow: 0 0 12px rgba(255, 255, 255, 0.9);
+  }
+  100% {
+    box-shadow: 0 0 0 rgba(255, 255, 255, 0.8);
+  }
+}
+
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 20, 40, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.modal.show {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.modal-card {
+  background: #ffffff;
+  padding: 24px 32px;
+  border-radius: 16px;
+  box-shadow: 0 16px 32px rgba(24, 32, 73, 0.2);
+  text-align: center;
+  min-width: 280px;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+  justify-content: center;
+}
+
+.modal-actions button {
+  padding: 10px 16px;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+}
+
+#playAgainButton {
+  background: #5f6bff;
+  color: #ffffff;
+}
+
+#closeModalButton {
+  background: #e9ecff;
+  color: #2b3162;
+}
+
+@media (max-width: 900px) {
+  .app-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .board {
+    width: min(86vw, 70vh, 640px);
+    height: min(86vw, 70vh, 640px);
+  }
+}
