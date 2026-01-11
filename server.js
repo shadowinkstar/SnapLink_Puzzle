@@ -1,9 +1,10 @@
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
-import { extname, join, normalize } from 'node:path';
+import { dirname, extname, join, normalize } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const port = Number.parseInt(process.env.PORT || '3000', 10);
-const rootDir = process.cwd();
+const rootDir = dirname(fileURLToPath(import.meta.url));
 
 const contentTypes = {
   '.html': 'text/html; charset=utf-8',
