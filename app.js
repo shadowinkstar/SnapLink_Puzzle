@@ -203,7 +203,7 @@ function buildPieces() {
 
     piece.el.className = 'piece';
     piece.el.dataset.id = String(piece.id);
-    piece.el.innerHTML = `<span class="piece-label">${i + 1}</span>`;
+    piece.el.innerHTML = `<span class="piece-label">${correctRow + 1},${correctCol + 1}</span>`;
     piece.el.style.width = `${state.pieceSize}px`;
     piece.el.style.height = `${state.pieceSize}px`;
     boardEl.appendChild(piece.el);
