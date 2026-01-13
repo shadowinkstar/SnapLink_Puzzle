@@ -14,7 +14,12 @@ body {
 }
 
 [v-cloak] {
-  display: none;
+  /* 将display改为透明度控制，避免完全隐藏 */
+  opacity: 0;
+  visibility: hidden;
+  position: absolute;
+  left: -9999px;
+  top: -9999px;
 }
 
 .app-header {
